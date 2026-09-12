@@ -1,0 +1,129 @@
+name: Validate & Build Skill
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    name: Validate skill format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install yaml parser
+        run: pip install pyyaml
+
+      - name: Validate SKILL.md frontmatter
+        run: |
+          python3 <<'EOF'
+          import sys, yaml, re
+
+          ok = True
+          for f in ["droidspaces.md"]:
+              print(f"=== {f} ===")
+              try:
+                  text = open(f).read()
+              except FileNotFoundError:
+                  print(f"  ERROR: {f} not found")
+                  ok = False
+                  continue
+
+              m = re.match(r'^---\n(.*?)\n---\n', text, re.DOTALL)
+              if not m:
+                  print("  ERROR: no YAML frontmatter (--- delimiters)")
+                  ok = False
+                  continue
+
+              try:
+                  fm = yaml.safe_load(m.group(1))
+              except yaml.YAMLError as e:
+                  print(f"  ERROR: YAML parse failed: {e}")
+                  ok = False
+                  continue
+
+              if not isinstance(fm, dict):
+                  print("  ERROR: frontmatter not a mapping")
+                  ok = False
+                  continue
+
+              for key in ["name", "description"]:
+                  if key not in fm:
+                      print(f"  ERROR: missing required key '{key}'")
+                      ok = False
+                  else:
+                      print(f"  OK: {key} = {fm[key]!r}")
+
+              if len(fm.get("description", "")) > 57:
+                  print(f"  WARN: description >57 chars (truncation)")
+              print(f"  OK: {len(text)} bytes, {text.count(chr(10))+1} lines")
+
+          if not ok:
+              sys.exit(1)
+          print("\nAll skills valid ✓")
+          EOF
+
+  build:
+    name: Build installable skill tarball
+    runs-on: ubuntu-latest
+    needs: validate
+    outputs:
+      tarball: ${{ steps.package.outputs.tarball }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble skill directory layout
+        run: |
+          # Hermes skill layout:
+          #   ~/.hermes/skills/<category>/<skill-name>/SKILL.md
+          mkdir -p staging/hermes/skills/software-development/droidspaces
+          cp droidspaces.md staging/hermes/skills/software-development/droidspaces/SKILL.md
+          cat > staging/install.sh <<'EOF'
+          #!/bin/sh
+          # Install Droidspaces-Control-Skill into Hermes Agent
+          set -e
+          HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+          DEST="$HERMES_HOME/skills/software-development/droidspaces"
+          mkdir -p "$DEST"
+          cp "$(dirname "$0")/hermes/skills/software-development/droidspaces/SKILL.md" "$DEST/SKILL.md"
+          echo "Installed to $DEST/SKILL.md"
+          echo "Restart your Hermes session (or /skills reload) to pick it up."
+          EOF
+          chmod +x staging/install.sh
+
+      - name: Create tarball
+        id: package
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          [ "$VER" = "$GITHUB_REF_NAME" ] && VER="latest"
+          tar -czf "droidspaces-control-skill-${VER}.tar.gz" -C staging .
+          echo "tarball=droidspaces-control-skill-${VER}.tar.gz" >> "$GITHUB_OUTPUT"
+          ls -la *.tar.gz
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: droidspaces-control-skill
+          path: '*.tar.gz'
+
+      - name: Publish to GitHub Releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.package.outputs.tarball }}
+          name: ${{ steps.package.outputs.tarball }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

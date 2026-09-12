@@ -24,7 +24,18 @@ This skill is the complete operational reference for driving it **from a root sh
 
 ## Installation
 
-### Into Hermes Agent (recommended)
+### Option A: Download the release tarball (recommended)
+
+The [Releases](../../releases) page has auto-built `droidspaces-control-skill-<ver>.tar.gz` (built & validated by GitHub Actions):
+
+```bash
+# Download & extract
+tar -xzf droidspaces-control-skill-v1.0.0.tar.gz
+# Run installer (installs to ~/.hermes/skills/software-development/droidspaces/SKILL.md)
+./install.sh
+```
+
+### Option B: Into Hermes Agent (manual)
 
 ```bash
 # From your Hermes skills directory:
@@ -34,9 +45,17 @@ cp droidspaces.md ~/.hermes/skills/software-development/droidspaces/SKILL.md
 
 Then ask your Hermes agent to manage Droidspaces — it will auto-load the skill.
 
-### Standalone reference
+### Option C: Standalone reference
 
 Just read `droidspaces.md` — it's a self-contained markdown reference.
+
+## CI/CD
+
+GitHub Actions (`.github/workflows/validate-build.yml`) runs on every push / PR / tag:
+
+- **validate** — checks `droidspaces.md` has valid YAML frontmatter (`name`, `description`) and structure
+- **build** — assembles the Hermes directory layout (`skills/software-development/droidspaces/SKILL.md`) + `install.sh`, tars it up
+- **publish** — on `v*` tags, uploads the tarball to GitHub Releases
 
 ## Prerequisites
 
