@@ -112,6 +112,14 @@ jobs:
           echo "tarball=droidspaces-control-skill-${VER}.tar.gz" >> "$GITHUB_OUTPUT"
           ls -la *.tar.gz
 
+      - name: Sanity-check tarball content
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          [ "$VER" = "$GITHUB_REF_NAME" ] && VER="latest"
+          tar -tzf "droidspaces-control-skill-${VER}.tar.gz"
+          echo "--- verify install.sh is executable ---"
+          tar -tvzf "droidspaces-control-skill-${VER}.tar.gz" | grep install.sh
+
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
