@@ -189,7 +189,7 @@ curl -s -m 5 -o /dev/null -w 'HTTP %{http_code}\n' http://127.0.0.1:80/   # HTTP
 
 ## droidctl — unified CLI wrapper (crane + droidspaces)
 
-`droidctl` (`~/bin/droidctl`, bash, Termux) wraps the Docker-image conversion workflow into 2 commands, handling every gotcha below automatically:
+`droidctl` is a **Go static binary** (built by GH Actions in [GegeDevs/Droidctl-Termux](https://github.com/GegeDevs/Droidctl-Termux), `CGO_ENABLED=0`, arch arm64/amd64) wrapping the Docker-image conversion workflow into 2 commands. Get it from Releases or CI artifacts; no bash script, no Go toolchain needed on device.
 
 ```sh
 droidctl pull <image>                 # crane export --platform linux/arm64 -> ~/droidimages/
