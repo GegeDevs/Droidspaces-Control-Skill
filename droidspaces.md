@@ -187,6 +187,29 @@ curl -s -m 5 -o /dev/null -w 'HTTP %{http_code}\n' http://127.0.0.1:80/   # HTTP
 - If starting with a stale config (old rootfs/custom init persisted), delete `container.config` or run `--reset` before `start`.
 - Debug rootfs boot errors quickly with a manual chroot: `mount -t proc proc <rootfs>/proc && mount -t tmpfs tmpfs <rootfs>/dev && chroot <rootfs> /usr/local/bin/ds-init` — it surfaces `Exec format error` etc. (skip the port-forward confusion entirely).
 
+## droidctl — unified CLI wrapper (crane + droidspaces)
+
+`droidctl` (`~/bin/droidctl`, bash, Termux) wraps the Docker-image conversion workflow into 2 commands, handling every gotcha below automatically:
+
+```sh
+droidctl pull <image>                 # crane export --platform linux/arm64 -> ~/droidimages/
+droidctl convert <image> [--cmd ...]  # pull + extract + auto-init (inittab, ds-init, /sbin/init)
+droidctl images                       # list rootfs pool (/data/local/tmp/droidimg)
+droidctl ps | start | stop | restart | logs | exec | info | rm | check | version
+droidctl start <name> [--net=...] [--port X:Y]   # --rootfs auto-resolved from pool
+```
+
+### What it automates (all the gotchas below)
+- Always `--platform linux/arm64` on pull (GOTCHA 1)
+- Extract as root to `/data/local/tmp/droidimg` (ext4 → hardlinks OK) with GNU tar `--hard-dereference` (FUSE /data/media can't hardlink; busybox images are full of hardlinks)
+- Auto-detect entrypoint (nginx/redis/docker-entrypoint.sh) → writes `/usr/local/bin/ds-init`; else idle-loop so `exec` works
+- Replaces openrc `inittab` with minimal `::sysinit:/usr/local/bin/ds-init` (GOTCHA: openrc absent in images)
+- Creates `/sbin/init` → busybox symlink when image lacks init (droidspaces requires /sbin/init)
+- `start` auto-resolves rootfs from pool by container name
+
+### Env overrides
+`DROIDSPACES_BIN`, `CRANE_BIN`, `DROIDCTL_IMGDIR` (default `~/droidimages`), `DROIDCTL_ROOTFS_DIR` (default `/data/local/tmp/droidimg`), `DROIDCTL_NET` (default `host`).
+
 ## Troubleshooting quick reference
 
 | Symptom | Likely cause / fix |
